@@ -1,7 +1,16 @@
 package sk.itsovy.android.maptutorial
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.ActivityCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -13,8 +22,9 @@ import sk.itsovy.android.maptutorial.databinding.ActivityMapsBinding
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
-    private lateinit var mMap: GoogleMap
+    private lateinit var map: GoogleMap
     private lateinit var binding: ActivityMapsBinding
+    private lateinit var locationProviderClient : FusedLocationProviderClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,6 +36,32 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
+
+        binding.fabLocation.setOnClickListener {
+            getLocation()
+        }
+
+        locationProviderClient = LocationServices.getFusedLocationProviderClient(this)
+    }
+
+    val locationPermissionRequest = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        permissions ->
+            when {
+                permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
+                    // mam FINE permission
+                    Log.d("MAPTUTORIAL", "FINE permission")
+                }
+                permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
+                    // mam COARSE permission
+                    Log.d("MAPTUTORIAL", "COARSE permission")
+                }
+                else -> {
+                    // nemam permission
+                    Log.d("MAPTUTORIAL", "NO permission")
+                }
+            }
     }
 
     /**
@@ -38,11 +74,52 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
      * installed Google Play services and returned to the app.
      */
     override fun onMapReady(googleMap: GoogleMap) {
-        mMap = googleMap
+        map = googleMap
 
         // Add a marker in Sydney and move the camera
-        val sydney = LatLng(-34.0, 151.0)
-        mMap.addMarker(MarkerOptions().position(sydney).title("Marker in Sydney"))
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney))
+        // val sydney = LatLng(48.0, 28.0)
+        val place = LatLng(48.7, 21.3)
+        map.addMarker(MarkerOptions().position(place).title("Marker"))
+        map.moveCamera(CameraUpdateFactory.newLatLngZoom(place, 10f))
+        //map.mapType = GoogleMap.MAP_TYPE_SATELLITE
+        //map.isTrafficEnabled = true
+
+    }
+
+
+    private fun getLocation() {
+         if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // rationale - poziadat detailnejsie o povolenie
+            locationPermissionRequest.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+            return
+        }
+        val task = locationProviderClient.lastLocation
+        task.addOnCompleteListener {
+            if (it.isSuccessful) {
+                Toast.makeText(this, "LOCATION OK", Toast.LENGTH_SHORT).show()
+
+                map.clear()
+                val location = it.result
+                val place = LatLng(location.latitude, location.longitude)
+                map.addMarker(MarkerOptions().position(place).title("Location"))
+                map.moveCamera(CameraUpdateFactory.newLatLngZoom(place, 11f))
+
+
+            } else {
+                Toast.makeText(this, "NO LOCATION", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }
