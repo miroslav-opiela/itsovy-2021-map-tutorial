@@ -3,12 +3,14 @@ package sk.itsovy.android.maptutorial
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
+import com.google.android.gms.common.util.CollectionUtils
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 
@@ -19,12 +21,14 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import sk.itsovy.android.maptutorial.databinding.ActivityMapsBinding
+import java.util.*
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var map: GoogleMap
     private lateinit var binding: ActivityMapsBinding
     private lateinit var locationProviderClient : FusedLocationProviderClient
+    private var currentPosition = LatLng(48.7, 21.3)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,12 +82,30 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Add a marker in Sydney and move the camera
         // val sydney = LatLng(48.0, 28.0)
-        val place = LatLng(48.7, 21.3)
-        map.addMarker(MarkerOptions().position(place).title("Marker"))
-        map.moveCamera(CameraUpdateFactory.newLatLngZoom(place, 10f))
+
+        map.addMarker(MarkerOptions().position(currentPosition).title("Marker"))
+        map.moveCamera(CameraUpdateFactory.newLatLngZoom(currentPosition, 10f))
         //map.mapType = GoogleMap.MAP_TYPE_SATELLITE
         //map.isTrafficEnabled = true
 
+        map.setOnMapClickListener {
+            currentPosition = it
+            val address = getAddress()
+            Log.d("ADRESA", address)
+            map.addMarker(MarkerOptions().position(currentPosition).title(address))
+
+        }
+
+    }
+
+    private fun getAddress() : String {
+        val geocoder = Geocoder(this, Locale.getDefault())
+        val fromLocation = geocoder.getFromLocation(currentPosition.latitude, currentPosition.longitude, 1)
+        if (CollectionUtils.isEmpty(fromLocation)) {
+            return "Address Unknown"
+        }
+        val address = fromLocation[0]
+        return address.getAddressLine(0)
     }
 
 
@@ -112,9 +134,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
                 map.clear()
                 val location = it.result
-                val place = LatLng(location.latitude, location.longitude)
-                map.addMarker(MarkerOptions().position(place).title("Location"))
-                map.moveCamera(CameraUpdateFactory.newLatLngZoom(place, 11f))
+                currentPosition = LatLng(location.latitude, location.longitude)
+                map.addMarker(MarkerOptions().position(currentPosition).title("Location"))
+                map.moveCamera(CameraUpdateFactory.newLatLngZoom(currentPosition, 14f))
 
 
             } else {
